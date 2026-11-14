@@ -1,0 +1,20 @@
+# Repositório do Escudeiro (o molde). Nada pessoal entra aqui.
+.DS_Store
+__pycache__/
+*.pyc
+
+# Segredos e config de quem estiver testando o molde
+audio.json
+.env
+*.env
+escudeiro.conf
+nomes-proibidos.txt
+codex/ponte/ponte.env
+codex/ponte/ponte.env.txt
+codex/ponte/acesso.json
+codex/ponte/estado/
+codex/ponte/*.log
+
+# Logs gerados ao testar ferramentas dentro de modelo/
+modelo/logs/
+modelo/entrada/

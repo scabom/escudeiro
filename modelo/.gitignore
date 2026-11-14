@@ -1,0 +1,36 @@
+# Segredos (nunca vão para o git)
+audio.json
+.env
+.env.*
+*.env
+ponte.env
+ponte.env.txt
+acesso.json
+access.json
+*token*.env
+claude-token.env
+escudeiro.conf
+nomes-proibidos.txt
+.claude/settings.local.json
+
+# Entrada (fotos e arquivos que chegam pelo Telegram) e brutos com dado pessoal
+entrada/
+inbox/
+NAO-LER-*
+
+# Logs e estado das rotinas
+logs/
+*.log
+
+# Lixo do sistema
+.DS_Store
+__pycache__/
+*.pyc
+
+# Se este agente for para um repositório PÚBLICO, descomente também:
+# working-memory.md
+# memoria/
+# diario/
+# registros/
+# lembretes.txt
+# lembretes-avulsos.txt

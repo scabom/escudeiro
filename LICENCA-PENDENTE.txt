@@ -1,0 +1,13 @@
+LICENÇA AINDA NÃO ESCOLHIDA
+
+Este projeto (o Escudeiro) ainda não tem licença própria. Quem escolhe é o dono
+do projeto, antes de publicar.
+
+Enquanto não houver um arquivo LICENSE, vale o padrão da lei: ninguém tem
+permissão de copiar, modificar ou redistribuir este código.
+
+Atenção ao escolher: partes do Escudeiro são derivadas do DG Claw, que é
+licença MIT. A licença MIT permite quase tudo, mas exige que o aviso de
+copyright e o texto da licença MIT originais acompanhem as cópias. Esse aviso
+está em licencas-de-terceiros/DG-Claw-LICENSE-MIT.txt e precisa continuar no
+pacote, qualquer que seja a licença escolhida. Veja AGRADECIMENTOS.md.

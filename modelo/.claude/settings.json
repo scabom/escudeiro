@@ -1,0 +1,33 @@
+{
+  "_comentario": "Configuração da pasta do agente (Escudeiro). Os caminhos usam $CLAUDE_PROJECT_DIR DE PROPÓSITO: um caminho fixo com nome de usuário quebra o agente inteiro em qualquer outra máquina (o hook barra todo prompt e ele não sobe). Todos os hooks falham calados (exit 0) em erro próprio.",
+  "_comentario_fio": "fio-telegram.py injeta, antes de cada resposta, as últimas mensagens reais do Telegram (as do dono e as do agente), para o agente não perder o fio quando o contexto é compactado.",
+  "_comentario_memoria_sem_perda": "arquivar.py guarda a conversa do Telegram em ~/Arquivo-<agente> (ou na pasta do memoria-sem-perda.json), no máximo a cada 30 min, em segundo plano. Ver ferramentas/memoria-sem-perda/INSTALAR.md.",
+  "_comentario_checar_memoria": "checar-memoria.py roda depois de cada gravação: procura texto com cara de instrução maliciosa na memória e avisa quando uma seção passa de 40 KB (caderninho: 12 KB). Só avisa, nunca bloqueia. Também roda depois de Bash: se o comando gravou na memória pelo terminal, avisa que o detector de texto não viu.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$CLAUDE_PROJECT_DIR/ferramentas/fio-telegram.py\""
+          },
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$CLAUDE_PROJECT_DIR/ferramentas/memoria-sem-perda/arquivar.py\" --fundo --intervalo 1800"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$CLAUDE_PROJECT_DIR/ferramentas/checar-memoria.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

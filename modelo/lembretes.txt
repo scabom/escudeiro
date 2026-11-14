@@ -1,0 +1,23 @@
+# Lembretes com data — o bom-dia (ferramentas/bom-dia.sh) lê isto toda manhã.
+#
+# Um por linha. Linhas começando com # são ignoradas.
+#
+# DATA ÚNICA:            AAAA-MM-DD | antecedência | texto
+#   Começa a avisar <antecedência> dias antes. Depois que a data passa, continua
+#   avisando (ATRASADO) até alguém apagar a linha daqui.
+#
+# TODO MÊS:              MENSAL:15 | tolerância | texto
+#   Aparece no dia 15 de todo mês e continua por mais <tolerância> dias, para o
+#   caso de o computador estar desligado no dia. Nunca fica ATRASADO.
+#
+# A CADA N DIAS:         ACADA:2:AAAA-MM-DD | 0 | texto
+#   Começa na data e repete a cada N dias até alguém apagar a linha.
+#
+# O bom-dia mostra só a primeira frase de cada lembrete (até ~90-150 caracteres):
+# escreva o recado curto primeiro e o detalhe depois.
+#
+# Exemplos (apague e ponha os seus):
+#
+# 2030-01-10 | 7 | Renovar a carteira de motorista. Levar comprovante de endereço.
+# MENSAL:5 | 2 | Pagar a conta de luz.
+# ACADA:7:2030-01-01 | 0 | Regar as plantas da varanda.

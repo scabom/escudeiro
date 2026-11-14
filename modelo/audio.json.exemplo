@@ -1,0 +1,5 @@
+{
+  "provider": "groq",
+  "groq_api_key": "gsk_COLE_SUA_CHAVE_AQUI",
+  "_como_usar": "Copie para audio.json (sem o .exemplo), cole a chave criada em console.groq.com/keys e rode: chmod 600 audio.json. provider pode ser groq (sugerido), local ou off."
+}

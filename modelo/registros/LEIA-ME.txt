@@ -1,0 +1,3 @@
+O caderno de anotações soltas DO DONO: um arquivo por dia (AAAA-MM-DD.md),
+com "## Tarefas" e "## Ideias". Quem escreve é a habilidade "registrar".
+É pessoal: fica fora de repositório público.

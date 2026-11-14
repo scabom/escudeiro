@@ -1,0 +1,35 @@
+# Configuração das ferramentas do agente (Escudeiro).
+# Copie para "escudeiro.conf" (sem o .exemplo), na raiz da pasta do agente.
+# Formato: CHAVE="valor", uma por linha. Linhas com # são ignoradas.
+# O escudeiro.conf fica fora do git (está no .gitignore): tem nomes e o chat do dono.
+
+# Nomes (aparecem nas mensagens do bom-dia, dos avisos e do fio do Telegram).
+NOME_AGENTE="{{NOME_AGENTE}}"
+NOME_DONO="{{NOME_DONO}}"
+
+# ---- Telegram (para os avisos que saem SEM a janela viva: bom-dia, backup, vigias) ----
+# Arquivo com a linha TELEGRAM_BOT_TOKEN=... (Claude Code: o .env do plugin; Codex: o ponte.env).
+TELEGRAM_ENV="$HOME/.claude/channels/telegram/.env"
+# Chat do dono. Vazio = descobrir sozinho: access.json do plugin (allowFrom) ou
+# approved/ do plugin, ou o acesso.json da ponte (TELEGRAM_ACESSO, campo "permitidos").
+TELEGRAM_CHAT_ID=""
+# No Codex, aponte para o acesso.json da ponte:
+# TELEGRAM_ACESSO="/caminho/da/ponte/acesso.json"
+TELEGRAM_ACESSO=""
+
+# ---- Backup (ferramentas/backup.sh e confere-backup.sh, usam o rclone) ----
+# Destino no formato do rclone: "<remote>:<pasta>". Crie o remote com "rclone config".
+# Vazio = backup desligado (o script avisa e sai).
+BACKUP_DESTINO=""
+# Pastas a copiar, separadas por ":" (a pasta do agente entra sempre).
+BACKUP_ORIGENS=""
+# Onde está o rclone (vazio = procurar no PATH).
+RCLONE=""
+# Pacote de certificados opcional para o rclone (se o macOS recusar o certificado).
+RCLONE_CACERT=""
+
+# ---- Inicialização (iniciar.sh) ----
+# Arquivo opcional com CLAUDE_CODE_OAUTH_TOKEN=... (gerado por "claude setup-token"), chmod 600.
+CLAUDE_TOKEN_ARQUIVO=""
+# Esforço do modelo (low, medium, high). Vazio = o padrão do Claude Code.
+CLAUDE_EFFORT=""
