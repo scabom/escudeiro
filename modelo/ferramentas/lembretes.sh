@@ -24,13 +24,18 @@
 # ano, e cada uma, depois de passar, ficaria gritando ATRASADO para sempre. No
 # mensal, o segundo campo é a TOLERÂNCIA: quantos dias DEPOIS do dia 15 ele
 # continua lembrando (para o caso de o computador estar desligado no dia 15).
+# A conta é por data completa, então atravessa a virada do mês: "MENSAL:31 | 2"
+# ainda aparece nos dias 1 e 2 do mês seguinte. Mês que não tem o dia pedido
+# (31 em abril, 30 em fevereiro) usa o ÚLTIMO dia daquele mês.
 #
 # Outro arquivo:  LEMBRETES_ARQUIVO=/caminho/outro.txt bash lembretes.sh
 # TESTE sem esperar o calendário:  LEMBRETES_HOJE=2030-01-15 bash lembretes.sh
 #
 # Feito para o macOS (usa o `date -j` do BSD). Linux fica para a v1.1.
 
-ARQ="${LEMBRETES_ARQUIVO:-$(cd "$(dirname "$0")/.." && pwd)/lembretes.txt}"
+# A pasta do agente: a do plist (rotina instalada) ou a de cima desta.
+PASTA_AGENTE="${ESCUDEIRO_PASTA:-$(cd "$(dirname "$0")/.." && pwd)}"
+ARQ="${LEMBRETES_ARQUIVO:-$PASTA_AGENTE/lembretes.txt}"
 TODOS="${1:-}"
 
 # ⚠️ ANCORAR TUDO NA MEIA-NOITE (bug silencioso já visto na prática).
@@ -45,6 +50,12 @@ meia_noite() { date -j -f "%Y-%m-%d %H:%M:%S" "$1 00:00:00" "+%s" 2>/dev/null; }
 HOJE_TXT="${LEMBRETES_HOJE:-$(date +%Y-%m-%d)}"
 HOJE_S=$(meia_noite "$HOJE_TXT")
 HOJE_DIA=$((10#$(printf %s "$HOJE_TXT" | cut -d- -f3)))
+# Último dia do mês (AAAA-MM), para o mensal em meses curtos.
+ultimo_dia() { date -j -v+1m -v-1d -f "%Y-%m-%d %H:%M:%S" "$1-01 00:00:00" "+%d" 2>/dev/null; }
+MES_ATUAL="${HOJE_TXT%-*}"
+MES_ANTERIOR=$(date -j -v-1m -f "%Y-%m-%d %H:%M:%S" "$MES_ATUAL-01 00:00:00" "+%Y-%m" 2>/dev/null)
+UD_ATUAL=$((10#$(ultimo_dia "$MES_ATUAL")))
+UD_ANTERIOR=$((10#$(ultimo_dia "$MES_ANTERIOR")))
 
 [ -f "$ARQ" ] || exit 0
 
@@ -83,7 +94,20 @@ while IFS= read -r linha || [ -n "$linha" ]; do
         printf 'todo dia %s (tolerância %s dias) — %s\n' "$dia" "$antec" "$texto"
         continue
       fi
-      depois=$(( HOJE_DIA - 10#$dia ))
+      d=$((10#$dia))
+      [ "$d" -ge 1 ] && [ "$d" -le 31 ] || continue
+      # A última ocorrência (hoje ou antes), por data completa: neste mês, se o
+      # dia já chegou; senão, no mês anterior.
+      alvo=$d; [ "$alvo" -gt "$UD_ATUAL" ] && alvo=$UD_ATUAL
+      if [ "$alvo" -le "$HOJE_DIA" ]; then
+        ocorr="$MES_ATUAL-$(printf %02d "$alvo")"
+      else
+        alvo=$d; [ "$alvo" -gt "$UD_ANTERIOR" ] && alvo=$UD_ANTERIOR
+        ocorr="$MES_ANTERIOR-$(printf %02d "$alvo")"
+      fi
+      ocorr_s=$(meia_noite "$ocorr")
+      [ -n "$ocorr_s" ] || continue
+      depois=$(( (HOJE_S - ocorr_s) / 86400 ))
       if [ "$depois" -eq 0 ]; then
         printf 'É HOJE (todo dia %s) — %s\n' "$dia" "$texto"
       elif [ "$depois" -gt 0 ] && [ "$depois" -le "$antec" ]; then

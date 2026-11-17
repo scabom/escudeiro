@@ -6,12 +6,14 @@ Completa o rotina-vigiada.sh: aquele pega a rotina que roda e FALHA; este pega a
 (Mac dormindo/desligado, launchd que não disparou, plist quebrado).
 
 Como funciona:
-- Lê os LaunchAgents (~/Library/LaunchAgents/*.plist) embrulhados pelo rotina-vigiada.sh DESTA
-  pasta de agente e a agenda de cada um (StartCalendarInterval ou StartInterval).
+- Lê os LaunchAgents (~/Library/LaunchAgents/*.plist) embrulhados pelo rotina-vigiada.sh e
+  instalados para ESTA pasta de agente (ESCUDEIRO_PASTA no plist), e a agenda de cada um
+  (StartCalendarInterval ou StartInterval).
 - Calcula quando foi o último disparo ESPERADO e compara com o último "início" no log
-  <pasta do agente>/logs/rotinas/<nome>.log.
+  <logs>/rotinas/<nome>.log (<logs> = o ESCUDEIRO_LOGS do plist, ou <pasta do agente>/logs).
 - Atrasada (passou da tolerância): UM aviso por incidente, lembrete a cada 6 h.
-  Voltou a rodar: avisa e encerra o incidente. Pausada de propósito (.pausada): ignora.
+  Voltou a rodar: avisa e encerra o incidente. Pausada (.pausada): não conta como atrasada, mas
+  aparece no bom-dia, e o aviso da pausa é tentado de novo enquanto não tiver chegado.
 - Só cobra disparos depois que a rotina passou a ser vigiada (não acusa o passado).
 
 Uso:  python3 vigia-atrasos.py            (rodado pelo LaunchAgent a cada 30 min)
@@ -28,16 +30,21 @@ import subprocess
 from datetime import datetime, timedelta
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-PASTA = os.path.dirname(AQUI)
+# Instalado pelo instalar-launchd.sh, este script roda de uma cópia FORA da pasta do agente;
+# o plist diz qual é a pasta (ESCUDEIRO_PASTA) e onde está a configuração (ESCUDEIRO_CONF).
+PASTA = os.environ.get("ESCUDEIRO_PASTA") or os.path.dirname(AQUI)
+CONF = os.environ.get("ESCUDEIRO_CONF") or os.path.join(PASTA, "escudeiro.conf")
 LAUNCH = os.path.join(os.path.expanduser("~"), "Library/LaunchAgents")
-LOGS = os.path.join(PASTA, "logs", "rotinas")
-ESTADO = os.path.join(PASTA, "logs", "estado")
-EMBRULHO = os.path.realpath(os.path.join(AQUI, "rotina-vigiada.sh"))
+# Logs e marcas: os da rotina instalada (ESCUDEIRO_LOGS, fora da pasta do agente) ou logs/.
+BASE_LOGS = os.environ.get("ESCUDEIRO_LOGS") or os.path.join(PASTA, "logs")
+LOGS = os.path.join(BASE_LOGS, "rotinas")
+ESTADO = os.path.join(BASE_LOGS, "estado")
+PASTA_REAL = os.path.realpath(PASTA)
 
 
 def nome_agente():
     try:
-        with open(os.path.join(PASTA, "escudeiro.conf"), encoding="utf-8") as fh:
+        with open(CONF, encoding="utf-8") as fh:
             for l in fh:
                 k, _, v = l.strip().partition("=")
                 v = v.strip().strip('"').strip("'")
@@ -63,15 +70,21 @@ def rotinas_vigiadas():
         except Exception:
             continue
         args = d.get("ProgramArguments") or []
-        # Só as rotinas embrulhadas pelo rotina-vigiada.sh DESTA pasta (pode haver outros agentes).
-        if len(args) < 3 or os.path.realpath(os.path.expanduser(str(args[1]))) != EMBRULHO:
+        amb = d.get("EnvironmentVariables") or {}
+        # Só as rotinas embrulhadas pelo rotina-vigiada.sh e instaladas para ESTA pasta
+        # (pode haver outros agentes na mesma conta).
+        if len(args) < 3 or os.path.basename(str(args[1])) != "rotina-vigiada.sh":
             continue
-        yield args[2], d, f
+        pasta_plist = str(amb.get("ESCUDEIRO_PASTA") or "")
+        if not pasta_plist or os.path.realpath(os.path.expanduser(pasta_plist)) != PASTA_REAL:
+            continue
+        # Os logs desta rotina: os que o plist diz (rotina instalada) ou os padrão.
+        yield args[2], d, f, str(amb.get("ESCUDEIRO_LOGS") or BASE_LOGS)
 
 
-def ultimo_inicio(nome):
+def ultimo_inicio(nome, base):
     try:
-        with open(os.path.join(LOGS, nome + ".log"), encoding="utf-8") as fh:
+        with open(os.path.join(base, "rotinas", nome + ".log"), encoding="utf-8") as fh:
             linhas = [l for l in fh if l.rstrip().endswith(" início")]
         if linhas:
             return datetime.strptime(linhas[-1][:19], "%Y-%m-%d %H:%M:%S")
@@ -109,16 +122,17 @@ def ultimo_esperado(d, agora):
     return None, None
 
 
-def ler_estado(nome):
+def ler_estado(nome, base):
     try:
-        with open(os.path.join(ESTADO, nome + ".atraso.json")) as fh:
+        with open(os.path.join(base, "estado", nome + ".atraso.json")) as fh:
             return json.load(fh)
     except (OSError, ValueError):
         return {}
 
 
-def gravar_estado(nome, dados):
-    caminho = os.path.join(ESTADO, nome + ".atraso.json")
+def gravar_estado(nome, dados, base):
+    os.makedirs(os.path.join(base, "estado"), exist_ok=True)
+    caminho = os.path.join(base, "estado", nome + ".atraso.json")
     if dados:
         with open(caminho, "w") as fh:
             json.dump(dados, fh)
@@ -155,16 +169,29 @@ def main():
     os.makedirs(ESTADO, exist_ok=True)
     agora = datetime.now()
     atrasadas = []
-    for nome, d, caminho in rotinas_vigiadas():
-        if nome == "vigia-atrasos" or os.path.exists(os.path.join(ESTADO, nome + ".pausada")):
+    pausadas = []
+    for nome, d, caminho, base in rotinas_vigiadas():
+        if nome == "vigia-atrasos":
+            continue
+        if os.path.exists(os.path.join(base, "estado", nome + ".pausada")):
+            # Pausada não é "atrasada", mas também não some: entra no bom-dia, e se o aviso
+            # da pausa ainda não chegou ao dono, o vigia tenta de novo a cada rodada.
+            pausadas.append(nome)
+            marca = os.path.join(base, "estado", nome + ".pausa-avisada")
+            if not os.path.exists(marca):
+                if avisar("⏸️ A rotina \"%s\" está PAUSADA (falhou várias vezes seguidas) e não roda até a gente "
+                          "olhar. — %s" % (nome, ASSINA)):
+                    os.makedirs(os.path.dirname(marca), exist_ok=True)
+                    open(marca, "w").close()
+                    registrar("PAUSADA, avisei: %s" % nome)
             continue
         esperado, tol = ultimo_esperado(d, agora)
         if esperado is None:
             continue
         # Só cobra o que é posterior ao embrulho (data do plist = quando passou a ser vigiada).
         desde = datetime.fromtimestamp(os.path.getmtime(caminho))
-        rodou = ultimo_inicio(nome)
-        estado = ler_estado(nome)
+        rodou = ultimo_inicio(nome, base)
+        estado = ler_estado(nome, base)
         atrasada = esperado > desde and agora - esperado > tol and (rodou is None or rodou < esperado - timedelta(minutes=1))
         if atrasada:
             atrasadas.append("%s (devia ter rodado %s)" % (nome, hhmm(esperado)))
@@ -174,21 +201,27 @@ def main():
                          "Pode ser o Mac dormindo ou o agendamento travado. — %s"
                          % (nome, hhmm(esperado), "" if rodou is None else " (a última vez foi %s)" % hhmm(rodou), ASSINA))
                 if avisar(texto):
-                    gravar_estado(nome, {"esperado": esperado.isoformat(), "avisado": agora.isoformat()})
+                    gravar_estado(nome, {"esperado": esperado.isoformat(), "avisado": agora.isoformat()}, base)
                     registrar("ATRASADA, avisei: %s" % nome)
             elif ultimo_aviso and agora - ultimo_aviso > LEMBRETE:
                 if avisar("⏰ Lembrete: a rotina \"%s\" continua atrasada (devia ter rodado %s). — %s" % (nome, hhmm(esperado), ASSINA)):
                     estado["avisado"] = agora.isoformat()
-                    gravar_estado(nome, estado)
+                    gravar_estado(nome, estado, base)
                     registrar("ATRASADA, lembrei: %s" % nome)
         elif estado:
             if avisar("✅ A rotina \"%s\" voltou a rodar (último início %s). Atraso encerrado. — %s"
                       % (nome, hhmm(rodou) if rodou else "?", ASSINA)):
-                gravar_estado(nome, {})
+                gravar_estado(nome, {}, base)
                 registrar("voltou: %s" % nome)
-    registrar("conferi; atrasadas: %s" % (", ".join(atrasadas) or "nenhuma"))
-    if "--bom-dia" in sys.argv and atrasadas:
-        print("Rotinas atrasadas: " + "; ".join(atrasadas))
+    registrar("conferi; atrasadas: %s; pausadas: %s" % (", ".join(atrasadas) or "nenhuma", ", ".join(pausadas) or "nenhuma"))
+    if "--bom-dia" in sys.argv:
+        linhas = []
+        if atrasadas:
+            linhas.append("Rotinas atrasadas: " + "; ".join(atrasadas))
+        if pausadas:
+            linhas.append("Rotinas PAUSADAS (não rodam até a gente olhar): " + ", ".join(pausadas))
+        if linhas:
+            print("; ".join(linhas))
     if TESTE:
         print("atrasadas:", atrasadas or "nenhuma")
 

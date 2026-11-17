@@ -31,8 +31,9 @@ Primeira aula de um curso novo: crie a pasta com `chmod go-rwx` (só o dono lê)
    Documentos costumam ser bloqueados pelo macOS para o terminal: combine uma
    pasta própria, como `~/Recebidos`).
 2. **Transcrever:** mova para `gravacoes/AAAA-MM-DD-parteN.m4a` e transcreva com
-   a Groq (mesma chave do `audio.json`, mesmo `curl` do manual, com
-   `;filename=audio.m4a`). Limites do plano grátis: algumas horas de áudio por
+   a Groq pelo ajudante do manual: `bash ferramentas/transcrever-groq.sh
+   gravacoes/AAAA-MM-DD-parteN.m4a > transcricao-AAAA-MM-DD-parteN.txt` (ele lê a
+   chave do `audio.json` sozinho; nunca escreva a chave num comando). Limites do plano grátis: algumas horas de áudio por
    dia e por hora, e tamanho máximo por arquivo. Arquivo grande: divida (por
    exemplo, com `ffmpeg -i in.m4a -f segment -segment_time 1200 -c copy parte%02d.m4a`)
    e transcreva um bloco por vez.

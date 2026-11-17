@@ -16,8 +16,14 @@ Uso:
     python3 limpar-dados-pessoais.py entrada.md            → entrada.limpo.md
     python3 limpar-dados-pessoais.py entrada.md saida.md
     python3 limpar-dados-pessoais.py entrada.md --conferir  → só relata, não grava
+    python3 limpar-dados-pessoais.py entrada.md saida.md --substituir
+        → deixa substituir uma saída que JÁ existe (sem isso, ele recusa)
+
+Nunca grava por cima da entrada: saída igual à entrada (mesmo por outro
+caminho, link simbólico ou link físico) é recusada sempre.
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -67,6 +73,7 @@ def limpar(texto: str) -> tuple[str, list[tuple[str, int]]]:
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     so_conferir = "--conferir" in sys.argv
+    substituir = "--substituir" in sys.argv
 
     if not args:
         print(__doc__)
@@ -82,6 +89,24 @@ def main() -> int:
         saida = Path(args[1])
     else:
         saida = entrada.with_suffix(f".limpo{entrada.suffix}")
+
+    if not so_conferir:
+        # Mesmo arquivo por outro nome (caminho relativo, link simbólico, link físico)?
+        mesmo = entrada.resolve() == saida.resolve()
+        if not mesmo and saida.exists():
+            try:
+                mesmo = os.path.samefile(entrada, saida)
+            except OSError:
+                pass
+        if mesmo:
+            print(f"❌ a saída é o próprio arquivo de entrada ({saida}): recusado, o original não se perde.")
+            return 1
+        if saida.is_symlink():
+            print(f"❌ a saída é um link simbólico ({saida}): recusado. Escolha outro nome.")
+            return 1
+        if saida.exists() and not substituir:
+            print(f"❌ a saída já existe ({saida}). Escolha outro nome ou use --substituir.")
+            return 1
 
     texto = entrada.read_text(encoding="utf-8", errors="replace")
     limpo, achados = limpar(texto)

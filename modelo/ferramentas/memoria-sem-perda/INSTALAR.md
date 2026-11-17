@@ -11,7 +11,29 @@ pacote).
   respostas do agente pelo reply) para um banco local com busca por palavra,
   mais um `.md` por dia que qualquer pessoa consegue abrir.
 - Nada sai da máquina, não usa API nem crédito. Sem imagem, sem saída de
-  comando, sem segredo, sem "pensamento".
+  comando, sem "pensamento".
+
+## Segredos e mensagens sensíveis (leia)
+- O arquivo guarda a conversa **como ela foi escrita**, e guarda por tempo
+  indeterminado (é para isso que ele existe). Se o dono mandar uma senha ou uma
+  chave pelo Telegram, ela entra na conversa.
+- Antes de gravar, o `arquivar.py` troca por `[SEGREDO REMOVIDO]` o que tem
+  formato reconhecível: token de bot do Telegram, chaves `gsk_`, `sk-`, `ghp_`,
+  `AKIA`..., chave privada e "senha: ...". **Não pega tudo**: uma senha solta
+  no meio de uma frase passa. Não trate o arquivo como livre de segredos.
+- Segredo foi parar no arquivo? Nesta ordem:
+  1. **revogue o segredo** (troque a senha, apague a chave e crie outra): é o
+     que protege de verdade;
+  2. ache o número da mensagem (`lembrar.py <palavra>` mostra `#1234`) e apague:
+
+         python3 ferramentas/memoria-sem-perda/arquivar.py --apagar 1234
+
+     Isso tira a mensagem do banco, da busca e do `.md` do dia, e guarda a
+     chave dela numa lista de apagadas: nem a próxima rodada, nem o
+     `--refazer` a trazem de volta. Os números (`#1234`) podem mudar depois de
+     um `--refazer`: procure de novo com o `lembrar.py` antes de apagar;
+  3. o histórico bruto do Claude Code (`~/.claude/projects/`) ainda tem a
+     mensagem até ser limpo pelo próprio Claude Code.
 
 ## Requisitos
 - Python 3.9+ (só biblioteca padrão; o SQLite precisa ter FTS5, e o do macOS
@@ -59,8 +81,17 @@ segurança enquanto o arquivo não roda).
 ## Se der problema
 - Nada aparece: rode `arquivar.py --falar` à mão e veja a mensagem; erros do
   modo hook ficam em `<arquivo>/erros.log`.
-- Recomeçar do zero: `arquivar.py --refazer` (relê todos os históricos que
-  ainda existem).
+- Índice estranho ou corrompido: `arquivar.py --refazer`. Ele monta um índice
+  novo ao lado, com **tudo** o que o índice atual tem (inclusive conversas cujos
+  históricos o Claude Code já apagou) mais o que ainda existe nos históricos, e
+  passa de novo o filtro de segredos. Só troca se o novo não tiver menos
+  mensagens; o antigo fica guardado como `indice.db.antes-de-refazer-<data>`
+  (apague à mão quando tiver certeza).
+- Descartar o arquivo acumulado é outra coisa, e decisão do dono: apagar a
+  pasta do arquivo (`~/Arquivo-<agente>`) à mão. Nenhum comando faz isso sozinho.
+- Tudo o que mexe no banco (a rodada do hook, `--apagar`, `--refazer` e a
+  importação do `lembrar.py`) usa a mesma trava (`<arquivo>/.trava`). A rodada
+  do hook não espera: se o arquivo estiver ocupado, fica para a próxima.
 - O módulo nunca derruba o agente: qualquer erro no hook é registrado e ele sai
   calado.
 

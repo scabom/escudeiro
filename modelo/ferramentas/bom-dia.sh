@@ -17,6 +17,10 @@
 #   5. lembretes avulsos (lembretes-avulsos.txt, opcional): um por mensagem
 #
 # Teste sem enviar:  SEM_ENVIO=1 bash bom-dia.sh
+#
+# Código de saída (o rotina-vigiada.sh conta como falha tudo o que não for 0):
+#   0  tudo entregue (ou SEM_ENVIO=1)
+#   1  alguma parte do bom-dia ou algum lembrete avulso NÃO foi entregue
 
 . "$(dirname "$0")/comum.sh"
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -51,7 +55,7 @@ else
 fi
 
 # ---------- 2. rotinas atrasadas ----------
-ATRASOS=$(/usr/bin/python3 "$DIR/vigia-atrasos.py" --bom-dia 2>/dev/null || true)
+ATRASOS=$(/usr/bin/python3 -I "$DIR/vigia-atrasos.py" --bom-dia 2>/dev/null || true)
 [ -n "$ATRASOS" ] && PROBLEMAS="${PROBLEMAS}${ATRASOS}; "
 # E quem vigia o vigia: se ele está instalado mas não confere há mais de 2 h, conta.
 VIGIA_LOG="$LOGS/rotinas/vigia-atrasos.log"
@@ -76,7 +80,7 @@ LEMBRETES=$(bash "$DIR/lembretes.sh" 2>/dev/null || true)
 #   📌 HOJE · 📅 ESTA SEMANA (até 7 dias) · ⏳ Esperando você (os ATRASADO viram
 #   UMA linha com o número; a lista completa vai quando o dono pedir).
 # Cada item fica só com a 1ª frase, no máximo 90 caracteres.
-BLOCO_LEMBRETES=$(printf '%s' "$LEMBRETES" | /usr/bin/python3 -c '
+BLOCO_LEMBRETES=$(printf '%s' "$LEMBRETES" | /usr/bin/python3 -I -c '
 import re, sys
 hoje, semana, esperando = [], [], []
 def curto(t):
@@ -143,7 +147,7 @@ fi
 # em várias mensagens por linha (até 3500 unidades cada); se alguma parte falhar,
 # manda um aviso curto, para a falha nunca ser silenciosa.
 PARTES_DIR=$(mktemp -d)
-printf '%s' "$TEXTO" | /usr/bin/python3 -c '
+printf '%s' "$TEXTO" | /usr/bin/python3 -I -c '
 import sys
 dir_ = sys.argv[1]
 texto = sys.stdin.read()
@@ -180,15 +184,19 @@ else
 fi
 
 # ---------- lembretes avulsos: um por mensagem ----------
+# Sem pipe para o while: num pipe o laço roda num subshell e a contagem de
+# falhas se perderia (o bom-dia sairia "ok" com lembrete não entregue).
+FALHAS_AV=0
 if [ -n "$AVULSOS" ]; then
-  printf '%s\n' "$AVULSOS" | while IFS= read -r av; do
+  while IFS= read -r av; do
     [ -n "$av" ] || continue
     sleep 3
     if avisar_telegram "🔔 ${av}" 2>/dev/null; then
       registrar "lembrete avulso entregue"
     else
+      FALHAS_AV=$((FALHAS_AV+1))
       registrar "LEMBRETE AVULSO NAO ENTREGUE"
     fi
-  done
+  done <<< "$AVULSOS"
 fi
-exit 0
+[ "$FALHAS" = "0" ] && [ "$FALHAS_AV" = "0" ]

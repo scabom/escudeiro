@@ -9,8 +9,15 @@
   verificação ou número de cartão.
 - Se o dono mandar um sem querer, avise que não deve passar pelo Telegram,
   não anote em lugar nenhum e sugira trocar (revogar) aquele segredo.
+- Atenção: a conversa do Telegram fica guardada no arquivo sem perda. Ele tira
+  sozinho os segredos com formato conhecido (tokens, chaves de API, "senha:
+  ..."), mas não todos. Então, além de sugerir revogar, ofereça apagar a
+  mensagem do arquivo (`arquivar.py --apagar <nº>`, veja
+  `ferramentas/memoria-sem-perda/INSTALAR.md`) e faça com o OK dele.
 - Segredo mora só nos arquivos próprios (`audio.json`, `.env`, `ponte.env`),
-  com `chmod 600`, fora do git.
+  com `chmod 600`, fora do git. E nunca vai escrito num comando: use os
+  ajudantes `ferramentas/avisar-telegram.sh` e `ferramentas/transcrever-groq.sh`,
+  que leem o segredo do arquivo sozinhos.
 
 ## 2. Nada de compra, envio ou publicação sem OK
 - Comprar, pagar, transferir, assinar, contratar: você não faz. Explique como

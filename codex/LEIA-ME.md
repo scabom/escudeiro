@@ -16,7 +16,8 @@ dependências:
 3. Manda a resposta FINAL do agente de volta pelo bot.
 
 Ela já cuida de foto, arquivo (salvos em `entrada/` na pasta do agente), áudio
-(com a chave da Groq no `ponte.env`), mensagens em rajada, atraso e do comando
+(com a chave da Groq no `ponte.env`, só onde a cerca do Codex consegue
+proteger essa chave: veja o item S3 do Socorro; no Mac, hoje, fica sem áudio), mensagens em rajada, atraso e do comando
 `/nova`. Na primeira mensagem de uma conversa nova, ela cola o
 `working-memory.md` junto, para o agente começar sabendo do "agora".
 
@@ -53,6 +54,11 @@ isolamento, rode a ponte e o agente numa conta de usuário separada do macOS,
 padrão (sem administrador): a ponte recusa rodar como root. As mensagens de
 erro da ponte citam caminhos do Windows (`C:\PonteAgente`, conta "Agente"):
 no Mac, leia como "a pasta da ponte" e "a conta do agente".
+
+A ponte acha o Codex sozinha (no Node que a roda, nos lugares comuns do npm e
+no comando `codex` do PATH). Se ela disser "não achei o Codex", informe o
+caminho no `ponte.env`, na linha `CODEX_JS=`: o caminho é o que sai de
+`realpath "$(command -v codex)"` e termina em `bin/codex.js`.
 
 A ponte também se recusa a ligar se o `~/.codex/config.toml` da conta pedir
 algo que abre a cerca (modo sem cerca, `writable_roots`, `mcp_servers`,
@@ -96,6 +102,51 @@ Outras diferenças:
   mais comuns são: ponte desligada (bot mudo), duas pontes (erro 409) e
   `ponte.env` incompleto; o `node ponte.mjs --conferir` diz qual é.
 
+## Socorro da ponte
+
+As mensagens de erro da ponte apontam para estes itens. Em todos eles, rode
+`node ponte.mjs --conferir` depois do conserto: ele diz se ficou tudo certo.
+
+**S1. "Apareceu uma pasta .codex dentro da minha pasta".** Uma pasta `.codex`
+dentro da pasta do agente poderia mudar a configuração do Codex (e abrir a
+cerca). Ninguém da casa precisa dela ali. Na sua conta, apague a pasta
+`.codex` de dentro da pasta do agente (`rm -r <pasta do agente>/.codex`),
+confira que não sobrou nada (`ls -a <pasta do agente>`) e pergunte ao agente o
+que ele estava fazendo quando ela apareceu.
+
+**S2. "Da última vez o Codex não fechou nem à força".** A ponte deixou a marca
+`estado/codex-preso.txt` (dentro da pasta da ponte) porque um Codex não fechou.
+Reinicie o computador (garante que não sobrou Codex rodando), apague esse
+arquivo e ligue a ponte de novo. Se repetir sempre, diminua o
+`LIMITE_MINUTOS` do `ponte.env` e veja o `ponte.log`.
+
+**S3. "Não consegui confirmar que a chave do áudio (Groq) está protegida".**
+Com `GROQ_API_KEY` no `ponte.env`, a ponte só liga se confirmar que os comandos
+do agente NÃO conseguem ler esse arquivo. A limitação, dita com franqueza: o
+Codex que responde é um processo FILHO da ponte e roda com a mesma identidade
+(a mesma conta de usuário) que ela. Tudo o que a ponte consegue ler, o Codex
+filho também consegue, a menos que a cerca do Codex bloqueie a leitura. No Mac,
+a cerca do Codex não bloqueia leitura; mudar a ponte de conta não resolve, porque
+o filho iria junto para a mesma conta. No Windows, a cerca recomendada (com
+administrador) do Codex pode bloquear, e o `node ponte.mjs --testar` confirma.
+
+O caminho seguro, e o padrão no Mac: **ligar sem áudio**. Apague a linha
+`GROQ_API_KEY` do `ponte.env` (e revogue a chave em console.groq.com/keys, se
+ela já esteve ali), rode `node ponte.mjs --testar` e ligue de novo: o agente
+volta a funcionar e responde aos áudios pedindo texto.
+
+**S4. Trancar a pasta da ponte (só Windows).** No Windows, a ponte exige que a
+conta do agente NÃO consiga escrever na pasta da ponte, mas consiga escrever na
+subpasta `estado`. Na conta da dona, num Prompt de Comando aberto como
+administrador (troque `Agente` pelo nome da conta do agente):
+
+    icacls C:\PonteAgente /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F Agente:(OI)(CI)RX
+    icacls C:\PonteAgente\estado /grant Agente:(OI)(CI)M
+
+(`*S-1-5-32-544` é o grupo Administradores e `*S-1-5-18` é o Sistema, em
+qualquer idioma do Windows.) O Escudeiro é feito primeiro para o Mac: no
+Windows, a ponte não foi testada nesta versão.
+
 ## 3. Onde ficam as habilidades no Codex
 
 Pela documentação do Codex (página "Build skills", conferida na criação desta
@@ -126,5 +177,5 @@ O formato do `SKILL.md` é o mesmo das habilidades do Claude (cabeçalho com
 | Arquivo | O que é |
 | --- | --- |
 | `ponte/ponte.mjs` | A ponte Telegram ↔ Codex (versão em `ponte/VERSAO`) |
-| `ponte/ponte.env.exemplo` | Modelo da configuração (token, pasta do agente, nome, chave da Groq) |
+| `ponte/ponte.env.exemplo` | Modelo da configuração (token, pasta do agente, nome, chave da Groq, `CODEX_JS`) |
 | `ponte/VERSAO` | A versão da ponte |

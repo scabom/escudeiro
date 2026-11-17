@@ -11,7 +11,8 @@
 //                                    escrever fora da cerca) e mostra ✅ / ❌
 //         node ponte.mjs --conferir  confere tudo e sai, sem ligar
 //
-//  A versão está em ../VERSAO e o histórico no ../CHANGELOG.md.
+//  A versão está no arquivo VERSAO ao lado deste. Ajuda e socorro: codex/LEIA-ME.md
+//  do pacote Escudeiro (seção "Socorro da ponte"); histórico no CHANGELOG.md do pacote.
 // =============================================================================
 //
 // DE ONDE ELA VEM: é a irmã em Node de uma ponte em bash que já liga um agente
@@ -196,16 +197,39 @@ async function baixarArquivo(fileId, nomeSugerido, idMensagem) {
 // Windows, rodar um .cmd exige um shell, e shell é onde aspas viram problema.
 // Assim não existe shell nenhum entre a ponte e o Codex.
 function acharCodex() {
+  const js = (...partes) => path.join(...partes, 'node_modules', '@openai', 'codex', 'bin', 'codex.js');
   const candidatos = [
     CONF.CODEX_JS,
-    process.env.APPDATA && path.join(process.env.APPDATA, 'npm', 'node_modules', '@openai', 'codex', 'bin', 'codex.js'),
+    // O npm instala os globais no prefixo do PRÓPRIO Node que roda a ponte:
+    // <prefixo>/bin/node → <prefixo>/lib/node_modules/... (Homebrew, nvm, fnm,
+    // instalador oficial). No Windows: <prefixo>\node.exe → <prefixo>\node_modules\...
+    process.platform === 'win32'
+      ? js(path.dirname(process.execPath))
+      : js(path.dirname(path.dirname(process.execPath)), 'lib'),
+    process.env.npm_config_prefix && js(process.env.npm_config_prefix, 'lib'),
+    process.env.NPM_CONFIG_PREFIX && js(process.env.NPM_CONFIG_PREFIX, 'lib'),
+    process.env.APPDATA && js(process.env.APPDATA, 'npm'),
     // Pelo Agendador, antes de alguém entrar no Windows, o APPDATA pode vir vazio.
-    path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'node_modules', '@openai', 'codex', 'bin', 'codex.js'),
-    path.join(os.homedir(), '.local', 'npm', 'lib', 'node_modules', '@openai', 'codex', 'bin', 'codex.js'),
-    '/usr/local/lib/node_modules/@openai/codex/bin/codex.js',
-    '/usr/lib/node_modules/@openai/codex/bin/codex.js',
+    js(os.homedir(), 'AppData', 'Roaming', 'npm'),
+    js(os.homedir(), '.local', 'npm', 'lib'),
+    js(os.homedir(), '.npm-global', 'lib'),
+    js('/opt/homebrew/lib'),   // Homebrew no Mac com Apple Silicon
+    js('/usr/local/lib'),      // Homebrew no Mac Intel e Linux
+    js('/usr/lib'),
   ].filter(Boolean);
-  return candidatos.find(c => fs.existsSync(c)) || '';
+  const achado = candidatos.find(c => fs.existsSync(c));
+  if (achado) return achado;
+  // Último recurso: o comando "codex" do PATH. No npm ele é um link para o
+  // codex.js; seguimos o link e usamos o .js, ainda sem shell nenhum no meio.
+  for (const dir of (process.env.PATH || '').split(path.delimiter).filter(Boolean)) {
+    for (const nome of ['codex', 'codex.js']) {
+      try {
+        const real = fs.realpathSync(path.join(dir, nome));
+        if (real.endsWith(path.join('bin', 'codex.js'))) return real;
+      } catch { /* não existe aqui */ }
+    }
+  }
+  return '';
 }
 
 const CODEX_JS = acharCodex();
@@ -512,14 +536,14 @@ function conferir(modo) {
   if (process.platform === 'win32') {
     const tranca = consegueGravar(AQUI, [fileURLToPath(import.meta.url), ACESSO_ARQ, CONF_ARQ, path.join(AQUI, 'iniciar-ponte.cmd')]);
     if (tranca === 'sim') morrer('a pasta da ponte não está trancada: esta conta consegue escrever nela.',
-      'na conta da dona, rode os comandos de trancar (icacls) do passo a passo, Parte 3.5.');
+      'na conta da dona, rode os comandos de trancar (icacls) do codex/LEIA-ME.md, seção "Socorro da ponte", item S4.');
     if (tranca !== 'nao') morrer(`não consegui confirmar que a pasta da ponte está trancada: ${tranca}.`,
       'tente de novo; se repetir, chame quem ajudou na instalação.');
     if (consegueGravar(ESTADO) !== 'sim') morrer('a pasta estado da ponte está trancada demais: a ponte não consegue gravar nela.',
-      'na conta da dona, rode de novo os dois últimos comandos icacls da Parte 3.5 (os da pasta estado).');
+      'na conta da dona, rode de novo o último comando icacls do codex/LEIA-ME.md, seção "Socorro da ponte", item S4 (o da pasta estado).');
   }
   if (modo === 'ligar' && fs.existsSync(path.join(ESTADO, 'codex-preso.txt'))) morrer('da última vez o Codex não fechou nem à força.',
-    'reinicie o computador e depois apague C:\\PonteAgente\\estado\\codex-preso.txt (veja o SOCORRO, item 6c).');
+    'reinicie o computador e depois apague o arquivo estado/codex-preso.txt da pasta da ponte (veja o codex/LEIA-ME.md, seção "Socorro da ponte", item S2).');
   if (modo === 'ligar' && lerAcesso().length === 0) morrer('ninguém está autorizado ainda (acesso.json vazio).',
     'na conta da dona, rode primeiro: node ponte.mjs --parear');
 }
@@ -616,7 +640,7 @@ async function parear() {
       await telegram('getUpdates', { offset, timeout: 0 });   // marca como lida
       fs.writeFileSync(path.join(ESTADO, 'offset.txt'), String(offset));
       await enviar(m.chat.id, `Pareado! ✅ Agora eu, ${NOME}, só converso com você.`);
-      console.log(`\n✅ Pronto: ${quem} autorizada. Agora siga o passo a passo (trancar a pasta).\n`);
+      console.log(`\n✅ Pronto: ${quem} autorizada. Agora siga o passo a passo (codex/LEIA-ME.md do Escudeiro; no Windows, trancar a pasta: item S4 do Socorro da ponte).\n`);
       process.exit(0);
     }
   }
@@ -777,7 +801,7 @@ async function responder(chat, lote) {
   const pedido = await montarPergunta(lote);
   if (configNaPastaDoAgente()) {
     registrar('RECUSADO: apareceu uma pasta .codex na pasta do agente');
-    await enviar(chat, '⚠️ Apareceu uma pasta ".codex" dentro da minha pasta, e ela poderia mudar minhas travas de segurança. Por segurança não vou responder até alguém apagá-la (veja o SOCORRO.md).');
+    await enviar(chat, '⚠️ Apareceu uma pasta ".codex" dentro da minha pasta, e ela poderia mudar minhas travas de segurança. Por segurança não vou responder até alguém apagá-la (veja o codex/LEIA-ME.md do Escudeiro, Socorro da ponte, item S1).');
     return;
   }
 
@@ -836,7 +860,7 @@ async function ligar() {
       if (lerTexto(marcaAviso).trim() !== new Date().toDateString()) {
         let entregue = true;
         for (const chat of lerAcesso()) {
-          if (!await enviar(chat, '⚠️ Não liguei: não consegui confirmar que a chave do áudio (Groq) está protegida. Por segurança fico desligada até alguém arrumar. Chame quem fez a instalação (item 10 do SOCORRO).')) entregue = false;
+          if (!await enviar(chat, '⚠️ Não liguei: não consegui confirmar que a chave do áudio (Groq) está protegida. Por segurança fico desligada até alguém arrumar. Chame quem fez a instalação (codex/LEIA-ME.md do Escudeiro, Socorro da ponte, item S3).')) entregue = false;
         }
         if (entregue) {
           try { fs.writeFileSync(marcaAviso, new Date().toDateString()); } catch (e) { registrar(`não consegui gravar a marca do aviso diário: ${e.message}`); }
@@ -844,7 +868,7 @@ async function ligar() {
       }
       morrer(leu ? 'os comandos do agente conseguem LER o ponte.env, onde está a chave da Groq.'
         : 'não consegui confirmar que os comandos do agente NÃO leem o ponte.env (a checagem não respondeu ou deu um erro que não é "acesso negado").',
-      'instale a cerca recomendada (com administrador) do Codex, ou apague a linha GROQ_API_KEY do ponte.env para ligar sem áudio. Depois rode node ponte.mjs --testar. Veja o item 10 do SOCORRO.md.');
+      'apague a linha GROQ_API_KEY do ponte.env para ligar sem áudio (o caminho seguro; no Mac é o único, porque o Codex roda com a mesma conta da ponte e a cerca não bloqueia leitura). No Windows, a cerca recomendada (com administrador) do Codex pode bloquear. Depois rode node ponte.mjs --testar. Veja o codex/LEIA-ME.md, Socorro da ponte, item S3.');
     }
   }
   const avisoVersao = avisoDeVersao();
@@ -1026,7 +1050,7 @@ async function testar() {
   const leu = /(^|\n)LEU/.test(lido);
   if (lido.includes('NAOLEU')) ok.push('cerca do Codex: os comandos do agente não conseguem ler o token do bot nem a chave da Groq');
   else if (!leu) ruim.push(`não consegui confirmar se os comandos do agente leem o ponte.env (${(lido.match(/INCONCLUSIVO:\S*/) || ['sem resposta'])[0]}). Rode o teste de novo; se repetir, chame quem ajudou na instalação.`);
-  else if (GROQ_KEY) ruim.push('os comandos do agente conseguem LER o ponte.env, onde estão o token e a chave da Groq. Instale a cerca recomendada (com administrador) do Codex.');
+  else if (GROQ_KEY) ruim.push('os comandos do agente conseguem LER o ponte.env, onde estão o token e a chave da Groq. Apague a linha GROQ_API_KEY para ligar sem áudio (no Windows, a cerca recomendada do Codex, com administrador, pode bloquear a leitura). Veja o item S3 do Socorro da ponte no codex/LEIA-ME.md.');
   else avisos.push('os comandos do agente conseguem LER o token do bot (limitação conhecida: a cerca do Codex não bloqueia leitura neste modo). Se ele vazar, troque no BotFather.');
   let foraOk = false;
   try { await fetch('https://api.telegram.org', { signal: AbortSignal.timeout(15000) }); foraOk = true; } catch { }

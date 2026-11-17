@@ -14,6 +14,7 @@ Antes de buscar, arquiva o que for novo (rapidinho), pra achar até a conversa d
 import os
 import sqlite3
 import sys
+from urllib.request import pathname2url
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import arquivar  # noqa: E402
@@ -48,9 +49,21 @@ def main():
     argv = sys.argv[1:]
     cfg = arquivar.carregar_config()
     registrar_uso(cfg, argv)
-    db = arquivar.abrir_banco(cfg)
-    novos, dias = arquivar.ler_novidades(db, cfg)
-    arquivar.escrever_dias(db, cfg, dias)
+    # A importação mexe no banco: passa pela mesma trava do arquivar.py. Ocupado (um
+    # --refazer, por exemplo)? Busca no que já está arquivado, sem importar.
+    with arquivar.trava(cfg, esperar=10) as ok:
+        if ok:
+            db = arquivar.abrir_banco(cfg)
+            novos, dias = arquivar.ler_novidades(db, cfg)
+            arquivar.escrever_dias(db, cfg, dias)
+            db.close()
+        else:
+            print("(o arquivo está ocupado agora: busquei só no que já estava arquivado)\n")
+    caminho = os.path.join(cfg["arquivo"], "indice.db")
+    if not os.path.exists(caminho):
+        print("Ainda não há arquivo de conversas em %s." % cfg["arquivo"])
+        return
+    db = sqlite3.connect("file:%s?mode=ro" % pathname2url(caminho), uri=True)
 
     dia = opcao(argv, "--dia")
     if dia:

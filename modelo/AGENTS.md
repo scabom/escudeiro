@@ -90,7 +90,9 @@ Passo a passo para o dono:
 3. Colar a chave **ele mesmo, no computador**, nunca pelo Telegram:
    na linha `GROQ_API_KEY=` do `ponte.env` da ponte. Depois, rodar
    `node ponte.mjs --testar` de novo: a ponte só liga o áudio se confirmar que
-   os seus comandos NÃO conseguem ler esse arquivo.
+   os seus comandos NÃO conseguem ler esse arquivo. No Mac, hoje, isso não dá
+   para confirmar (você roda com a mesma conta da ponte e a cerca não bloqueia
+   leitura): lá o certo é ficar sem áudio e pedir texto ao dono.
 4. Mandar um áudio curto de teste.
 
 Se ele mandar a chave pelo Telegram mesmo assim: não anote em memória nenhuma,

@@ -21,6 +21,7 @@ Só biblioteca padrão do Python 3.9+.
 """
 import argparse
 import datetime
+import json
 import os
 import re
 import sys
@@ -73,9 +74,48 @@ def gerar(texto, motor):
 
 
 def preencher(texto, valores):
+    """Troca os marcadores em texto comum (Markdown)."""
     for chave, valor in valores.items():
         texto = texto.replace("{{%s}}" % chave, valor)
     return texto
+
+
+def preencher_json(texto, valores):
+    """Troca os marcadores DENTRO dos valores do JSON e serializa de novo com json.dumps:
+    aspas ou barra num nome não quebram o arquivo."""
+    def troca(o):
+        if isinstance(o, str):
+            return preencher(o, valores)
+        if isinstance(o, dict):
+            return {k: troca(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [troca(v) for v in o]
+        return o
+    return json.dumps(troca(json.loads(texto)), ensure_ascii=False) + "\n"
+
+
+def preencher_conf(texto, valores):
+    """O escudeiro.conf é lido como DADO (CHAVE="valor"), mas mesmo assim nada que pareça
+    shell entra nele: os nomes já foram validados (validar_nome) e aqui se confere de novo."""
+    for chave, valor in valores.items():
+        if ("{{%s}}" % chave) in texto and re.search(r'["\\$`\n\r]', valor):
+            raise SystemExit("o valor de %s não pode ter aspas, $, crase, barra invertida ou quebra de linha" % chave)
+    return preencher(texto, valores)
+
+
+def validar_nome(rotulo, valor):
+    """Nome do agente e do dono: vai para o manual, para o escudeiro.conf, para o JSON e,
+    o do agente, para um CAMINHO (~/Arquivo-<agente>). Então só letras (com acento),
+    números, espaço, hífen, ponto, sublinhado e apóstrofo; nada de barra ou de "..".
+    """
+    v = (valor or "").strip()
+    if not v:
+        raise SystemExit("%s vazio" % rotulo)
+    if len(v) > 40:
+        raise SystemExit("%s comprido demais (máximo 40 caracteres)" % rotulo)
+    if v.startswith(".") or ".." in v or not all(c.isalnum() or c in " -._'" for c in v):
+        raise SystemExit("%s inválido: %r (use só letras, números, espaço, hífen, ponto e apóstrofo)" % (rotulo, v))
+    return v
 
 
 def main():
@@ -105,7 +145,8 @@ def main():
             raise SystemExit("para batizar com --saida, informe também: " + ", ".join(faltando))
         if not os.path.isdir(destino):
             raise SystemExit("a pasta %s não existe: copie a pasta modelo/ para lá primeiro" % destino)
-        valores = {"NOME_AGENTE": a.nome.strip(), "NOME_DONO": a.dono.strip(), "PERSONALIDADE": pers,
+        valores = {"NOME_AGENTE": validar_nome("--nome", a.nome), "NOME_DONO": validar_nome("--dono", a.dono),
+                   "PERSONALIDADE": pers,
                    "DATA": datetime.date.today().strftime("%d/%m/%Y")}
 
     for motor in motores:
@@ -124,7 +165,12 @@ def main():
             if os.path.isfile(arq):
                 with open(arq, encoding="utf-8") as f:
                     antes = f.read()
-                depois = preencher(antes, valores)
+                if rel.endswith(".json"):
+                    depois = preencher_json(antes, valores)
+                elif rel == "escudeiro.conf":
+                    depois = preencher_conf(antes, valores)
+                else:
+                    depois = preencher(antes, valores)
                 if depois != antes:
                     with open(arq, "w", encoding="utf-8") as f:
                         f.write(depois)

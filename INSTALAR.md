@@ -25,8 +25,11 @@ fica em `~/agentes/aurora`. Troque pelos seus.
    bot. Nunca mande o token por mensagem, e-mail ou print.
 
 ### A3. Copiar e batizar a pasta do agente
-Na pasta onde você baixou o Escudeiro:
+Entre na pasta onde você baixou o Escudeiro (a que tem este `INSTALAR.md`).
+Nos exemplos ela está em `~/Downloads/escudeiro`; troque pelo seu caminho. Vários
+passos adiante (C3, D3) voltam a ela:
 
+    cd ~/Downloads/escudeiro
     mkdir -p ~/agentes
     cp -R modelo ~/agentes/aurora
     cp ~/agentes/aurora/escudeiro.conf.exemplo ~/agentes/aurora/escudeiro.conf
@@ -49,7 +52,9 @@ Se não for usar o Codex, pode apagar o `AGENTS.md` (e vice-versa).
        open -e audio.json          # cole a chave no lugar de gsk_COLE_SUA_CHAVE_AQUI e salve
        chmod 600 audio.json
 
-   No Codex, a chave vai no `ponte.env` (Parte C).
+   No Codex no Mac, deixe sem áudio: o Codex roda com a mesma conta da ponte e
+   conseguiria ler a chave, então a ponte não liga com ela (veja o item S3 do
+   "Socorro da ponte" em `codex/LEIA-ME.md`).
 
 O áudio vai para os servidores da Groq para ser transcrito.
 
@@ -119,8 +124,9 @@ nos comandos, sem arquivo sem perda na v1.0).
        mkdir -p ~/agentes/aurora/.agents/skills
        cp -R ~/agentes/aurora/.claude/skills/* ~/agentes/aurora/.agents/skills/
 
-3. A ponte, FORA da pasta do agente:
+3. A ponte, FORA da pasta do agente (a cópia sai da pasta do Escudeiro):
 
+       cd ~/Downloads/escudeiro
        cp -R codex/ponte ~/ponte-aurora
        cd ~/ponte-aurora
        cp ponte.env.exemplo ponte.env && chmod 600 ponte.env
@@ -128,8 +134,9 @@ nos comandos, sem arquivo sem perda na v1.0).
 
    Preencha `TELEGRAM_BOT_TOKEN=` (o token da A2), `PASTA_AGENTE=` com o caminho
    completo (o que aparecer quando você rodar `echo ~/agentes/aurora`),
-   `NOME_AGENTE=Aurora` e, se quiser áudio,
-   `GROQ_API_KEY=`. Salve.
+   `NOME_AGENTE=Aurora`. Deixe `GROQ_API_KEY=` vazio no Mac (veja a A4).
+   Salve. (Se mais adiante a ponte disser "não achei o Codex",
+   preencha também `CODEX_JS=`: o `ponte.env.exemplo` explica como.)
 
 4. Confira, pareie e ligue:
 
@@ -137,6 +144,9 @@ nos comandos, sem arquivo sem perda na v1.0).
        node ponte.mjs --parear        # mande para o bot o código de 6 dígitos que aparece
        node ponte.mjs --testar
        node ponte.mjs                 # fica rodando; deixe esta janela aberta
+
+   Para continuar (Parte D), abra **outra** janela do Terminal (Cmd + N): esta
+   fica ocupada com a ponte, e está na pasta `~/ponte-aurora`.
 
 5. No `~/agentes/aurora/escudeiro.conf`, aponte o Telegram para a ponte (para o
    bom-dia e os avisos):
@@ -173,12 +183,20 @@ O arquivo sem perda (`~/Arquivo-Aurora`) NÃO entra no backup por padrão: é
 conversa privada.
 
 ### D3. Ligar as rotinas
+O instalador mora na pasta do Escudeiro (a da A3), não na do agente nem na da
+ponte. Use o caminho completo, que funciona de qualquer pasta:
 
-    bash mac/launchd/instalar-launchd.sh ~/agentes/aurora           # mostra o que faria
-    bash mac/launchd/instalar-launchd.sh ~/agentes/aurora --ligar   # cria e liga
+    bash ~/Downloads/escudeiro/mac/launchd/instalar-launchd.sh ~/agentes/aurora           # mostra o que faria
+    bash ~/Downloads/escudeiro/mac/launchd/instalar-launchd.sh ~/agentes/aurora --ligar   # instala e liga
 
-Só quer algumas? Diga quais no fim (`--ligar bom-dia vigia-atrasos`). Horários
-e detalhes em `mac/launchd/LEIA-ME.md`.
+Confira a configuração que ele mostra (Telegram e backup). Só quer algumas
+rotinas? Diga quais no fim (`--ligar bom-dia vigia-atrasos`).
+
+As rotinas NÃO rodam da pasta do agente: o instalador copia os scripts do
+pacote e uma cópia conferida do `escudeiro.conf` para
+`~/Library/Application Support/Escudeiro/`, onde o agente não escreve. Por
+isso, **mudou o `escudeiro.conf` ou atualizou o Escudeiro? Rode o instalador
+de novo** (com `--ligar`). Horários e detalhes em `mac/launchd/LEIA-ME.md`.
 
 ### D4. Mac sempre acordado (recomendado)
 Ajustes do Sistema → Bateria (ou Economia de Energia) → impedir que o Mac durma

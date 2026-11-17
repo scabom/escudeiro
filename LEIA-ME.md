@@ -56,4 +56,5 @@ são as pessoas da sua vida, seus planos. Por isso:
 ## Versão
 
 Veja `VERSION` e `CHANGELOG.md`. Créditos e inspirações em `AGRADECIMENTOS.md`.
-A licença do projeto ainda vai ser escolhida (`LICENCA-PENDENTE.txt`).
+Licença: MIT (veja `LICENSE`). Partes derivadas do DG Claw levam também a
+licença MIT original dele, em `licencas-de-terceiros/`.

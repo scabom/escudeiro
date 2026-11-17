@@ -92,7 +92,11 @@ corrente parou. É só pedir: *"a rotina de X parou, remarca para mim"*.
 
 O **bom-dia**, o **backup** e os **vigias** são outra coisa: rodam pelo próprio
 macOS (LaunchAgents). Se pararam, confira com `launchctl list | grep escudeiro`
-e veja os logs em `logs/` na pasta do agente.
+e veja os logs em `~/Library/Logs/Escudeiro/<rótulo>/` (as rotinas instaladas
+gravam lá, fora da pasta do agente). Rotina pausada depois de 10 falhas: apague
+a marca `estado/<rotina>.pausada` dessa mesma pasta. Mudou o `escudeiro.conf`?
+Rode o `mac/launchd/instalar-launchd.sh` do pacote de novo: as rotinas usam uma
+cópia da configuração feita na instalação.
 
 ## 7. Ele avisou que ia "organizar a cabeça" (compactar)
 

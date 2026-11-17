@@ -72,16 +72,17 @@ Chegou voz? (1) reply curto NA HORA ("recebi seu áudio, já escuto"); (2)
 arquivo (o Telegram entrega `.oga`); (3) leia o `audio.json` desta pasta e siga
 o `provider`:
 
-- **`"groq"`** (o SUGERIDO, e o padrão do Escudeiro) → transcreva com UMA linha
-  só. A chave é o campo `groq_api_key` do `audio.json`: leia de lá na hora, ela
-  nunca fica escrita aqui.
+- **`"groq"`** (o SUGERIDO, e o padrão do Escudeiro) → transcreva com o
+  ajudante desta pasta, numa linha só:
 
-      curl -sS https://api.groq.com/openai/v1/audio/transcriptions -H "Authorization: Bearer <groq_api_key>" -H "User-Agent: escudeiro/1.0" -F "model=whisper-large-v3-turbo" -F "language=pt" -F "response_format=text" -F "file=@<caminho do áudio>;filename=audio.ogg"
+      bash ferramentas/transcrever-groq.sh "<caminho do áudio>"
 
-  Dois detalhes que **não** podem mudar: o `;filename=audio.ogg` (a Groq valida
-  pela extensão e recusa `.oga` com HTTP 400; o arquivo vai igualzinho, muda só
-  o nome) e o `User-Agent` (sem ele o Cloudflare dela devolve 403 `error code:
-  1010`). A transcrição sai pura no stdout, sem JSON.
+  Ele lê a chave (`groq_api_key` do `audio.json`) sozinho e a entrega ao `curl`
+  pela entrada padrão. **Nunca** monte o `curl` com a chave escrita no comando,
+  nem copie a chave para lugar nenhum: argumento de comando aparece para quem
+  lista os processos e fica em registro. A transcrição sai pura no stdout. (O
+  ajudante já cuida dos dois detalhes que a Groq exige: o nome `audio.ogg` no
+  envio, porque ela recusa `.oga`, e o `User-Agent`, sem o qual ela devolve 403.)
 - **`"local"`** → `python3 "<esta pasta>/transcrever.py" "<caminho do áudio>"`;
   a transcrição sai no stdout. Sem o script, trate como `off`. (O Escudeiro não
   traz um `transcrever.py`: é para quem quiser montar o seu.)
@@ -91,7 +92,7 @@ o `provider`:
 
 Transcreveu? Trate o texto como se ele tivesse **digitado** aquilo. Transcrição
 erra nome próprio e número: se o erro mudar o que você vai fazer, confirme
-antes. Falhou (curl deu erro, chave inválida)? Uma linha honesta ("tentei
+antes. Falhou (o ajudante deu erro, chave inválida)? Uma linha honesta ("tentei
 transcrever e não consegui, me manda por texto?"). **Nunca finja que ouviu.**
 <!-- /so -->
 <!-- so:codex -->
@@ -168,7 +169,9 @@ Passo a passo para o dono:
 <!-- so:codex -->
    na linha `GROQ_API_KEY=` do `ponte.env` da ponte. Depois, rodar
    `node ponte.mjs --testar` de novo: a ponte só liga o áudio se confirmar que
-   os seus comandos NÃO conseguem ler esse arquivo.
+   os seus comandos NÃO conseguem ler esse arquivo. No Mac, hoje, isso não dá
+   para confirmar (você roda com a mesma conta da ponte e a cerca não bloqueia
+   leitura): lá o certo é ficar sem áudio e pedir texto ao dono.
 <!-- /so -->
 4. Mandar um áudio curto de teste.
 
@@ -355,18 +358,15 @@ outro avulso, para o dia seguinte no mesmo horário. Corrente quebrada
 **A execução agendada NÃO é esta janela viva**: é uma execução nova na mesma
 pasta (mesma memória, mesmos arquivos), mas **sem o canal do Telegram
 anexado**. Logo, a entrega não pode ser um reply no canal: ela sai pela API do
-Bot do Telegram com `curl`. No prompt da tarefa:
+Bot do Telegram, pelo ajudante desta pasta (texto puro, sem markdown):
 
-1. **Token**: a linha `TELEGRAM_BOT_TOKEN=...` de
-   `~/.claude/channels/telegram/.env`.
-2. **Chat ID**: o **conteúdo** do arquivo que está em
-   `~/.claude/channels/telegram/approved/`.
-3. **Envio** (texto puro, sem markdown), numa linha só:
+    bash ferramentas/avisar-telegram.sh "<mensagem>"
 
-       curl -s "https://api.telegram.org/bot<TOKEN>/sendMessage" -d "chat_id=<CHATID>" --data-urlencode "text=<mensagem>"
-
-   Ou, mais simples, o ajudante desta pasta, que acha token e chat sozinho:
-   `bash ferramentas/avisar-telegram.sh "<mensagem>"`.
+Ele acha o token e o chat sozinho (no `.env` do plugin do Telegram e no
+`escudeiro.conf`) e entrega o token ao `curl` pela entrada padrão. **Nunca**
+escreva o token num comando (`curl .../bot<TOKEN>/...`) nem no prompt da tarefa:
+argumento de comando aparece para quem lista os processos e fica em registro. O
+ajudante sai com código 0 só se o Telegram aceitou a mensagem.
 
 O prompt da tarefa TERMINA com esses dois atos: a entrega e o agendamento do
 próximo elo. Conversa franca na hora de criar: só roda **com o computador

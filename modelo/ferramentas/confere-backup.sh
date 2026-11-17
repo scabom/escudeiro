@@ -12,6 +12,12 @@
 #
 # Uso:  bash ferramentas/confere-backup.sh
 # Teste do aviso (não mexe em nada): CONFERE_TESTE_DESTINO="remote-que-nao-existe:x" bash ferramentas/confere-backup.sh
+#
+# Código de saída: "a conferência rodou", "o backup está saudável" e "o aviso
+# chegou" são perguntas diferentes, e o rotina-vigiada.sh só vê o código:
+#   0  conferência feita e backup saudável (ou backup desligado)
+#   3  achei problema no backup e o aviso CHEGOU ao dono
+#   4  achei problema no backup e o aviso NÃO chegou
 
 . "$(dirname "$0")/comum.sh"
 RCLONE="${RCLONE:-$(command -v rclone || echo "$HOME/.local/bin/rclone")}"
@@ -19,7 +25,7 @@ TESTE=""
 if [ -n "$CONFERE_TESTE_DESTINO" ]; then BACKUP_DESTINO="$CONFERE_TESTE_DESTINO"; TESTE="[TESTE] "; fi
 [ -n "$BACKUP_DESTINO" ] || { echo "backup desligado: nada a conferir"; exit 0; }
 CANARIO="$PASTA/logs/backup-canario.txt"
-REMOTO_CANARIO="$BACKUP_DESTINO/atual/$(basename "$PASTA")/logs/backup-canario.txt"
+REMOTO_CANARIO="$BACKUP_DESTINO/atual/$(basename "$PASTA")/logs/backup-canario.txt"   # a pasta do agente sobe com o nome dela (veja backup.sh)
 BACKUP_LOG="$LOGS/backup.log"
 LOG="$LOGS/confere-backup.log"
 HOJE=$(date +%Y-%m-%d)
@@ -65,6 +71,9 @@ MSG="${TESTE}🔎 Conferência do backup ($HOJE): algo não bateu.
 $(printf '• %s\n' "${PROBLEMAS[@]}")
 
 O que já estava no backup continua lá. Me chama que eu olho (logs em logs/ na pasta do agente)."
-if ERRO=$(avisar_telegram "$MSG" 2>&1); then registrar "aviso entregue no telegram"
-else registrar "AVISO NAO ENTREGUE: $ERRO"; fi
-exit 0
+if ERRO=$(avisar_telegram "$MSG" 2>&1); then
+  registrar "aviso entregue no telegram"
+  exit 3
+fi
+registrar "AVISO NAO ENTREGUE: $ERRO"
+exit 4

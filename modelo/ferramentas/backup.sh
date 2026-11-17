@@ -2,13 +2,19 @@
 # Backup diário do essencial do agente (e de outras pastas que o dono escolher), com o rclone.
 #
 # Estratégia: espelho do estado ATUAL + histórico de versões.
-#   <destino>/atual/<pasta>/          -> como as coisas estão agora
-#   <destino>/versoes/DATA/<pasta>/   -> o que foi alterado ou apagado naquele dia
+#   <destino>/atual/<nome>/                 -> como as coisas estão agora
+#   <destino>/versoes/DATA_HORA/<nome>/     -> o que foi alterado ou apagado naquela execução
+# (uma pasta de versões por EXECUÇÃO: rodar duas vezes no mesmo dia não mistura nada)
 # Assim, apagar um arquivo aqui NÃO o apaga do backup: ele vai para o histórico.
 #
 # Configuração (escudeiro.conf, na pasta do agente):
 #   BACKUP_DESTINO="<remote>:<pasta>"   ex.: "meu-drive:Backup-Agente" (crie o remote com "rclone config")
 #   BACKUP_ORIGENS="$HOME/Documentos/projeto:$HOME/outra-pasta"   (opcional; a pasta do agente entra sempre)
+#     Cada origem vai para <destino>/atual/<nome>, e o <nome> é o nome final da pasta. Duas
+#     origens com o mesmo nome final (/a/projeto e /b/projeto) se apagariam uma à outra, então
+#     o backup RECUSA rodar até você dar um apelido a uma delas com "=apelido":
+#       BACKUP_ORIGENS="$HOME/a/projeto=projeto-a:$HOME/b/projeto=projeto-b"
+#     Apelido: só letras, números, ponto, hífen e sublinhado.
 #   RCLONE, RCLONE_CACERT                (opcionais)
 #
 # Dica de segurança para o remote do Google Drive: crie um client_id próprio e use o escopo
@@ -24,6 +30,7 @@ RCLONE="${RCLONE:-$(command -v rclone || echo "$HOME/.local/bin/rclone")}"
 TESTE=""
 if [ -n "$BACKUP_TESTE_DESTINO" ]; then BACKUP_DESTINO="$BACKUP_TESTE_DESTINO"; TESTE="[TESTE] "; fi
 HOJE=$(date +%Y-%m-%d)
+EXECUCAO=$(date +%Y-%m-%d_%H%M%S)
 LOG="$LOGS/backup.log"
 CANARIO="$PASTA/logs/backup-canario.txt"
 registrar() { registrar_em "$LOG" "${TESTE}$*"; }
@@ -78,20 +85,66 @@ EXCLUSOES=(
 )
 
 registrar "=== backup iniciado ==="
-# Canário: marca sem dado nenhum, lida DE VOLTA do destino pelo confere-backup.sh.
-[ -z "$TESTE" ] && echo "$HOJE $(date +%H:%M:%S)" > "$CANARIO"
 
 FALHAS=()
 PRIMEIRO_ERRO=""
+
+# Primeiro monta a lista (origem → nome no destino) e confere colisão ANTES de
+# sincronizar qualquer coisa: duas origens no mesmo destino = uma apaga a outra.
+ORIGENS=(); NOMES=()
 IFS=':' read -r -a EXTRAS <<< "${BACKUP_ORIGENS:-}"
-for ORIGEM in "$PASTA" "${EXTRAS[@]}"; do
-  [ -n "$ORIGEM" ] || continue
+COLISAO=""
+PRIMEIRA=1
+for ITEM in "$PASTA" "${EXTRAS[@]}"; do
+  [ -n "$ITEM" ] || continue
+  ORIGEM="$ITEM"; NOME=""
+  # A pasta do agente (a primeira) nunca leva apelido: sobe sempre com o nome dela.
+  if [ "$PRIMEIRA" = "0" ]; then
+    case "$ITEM" in *=*)
+      ORIGEM="${ITEM%=*}"; NOME="${ITEM##*=}"
+      case "$NOME" in ''|.*|*[!A-Za-z0-9._-]*)
+        COLISAO="${COLISAO}o apelido \"$NOME\" (de $ORIGEM) não vale; "; continue ;;
+      esac ;;
+    esac
+  fi
+  PRIMEIRA=0
   ORIGEM="${ORIGEM/#\~/$HOME}"
-  NOME=$(basename "$ORIGEM")
+  ORIGEM="${ORIGEM%/}"
+  [ -n "$NOME" ] || NOME=$(basename "$ORIGEM")
+  case "$NOME" in ''|.|..) COLISAO="${COLISAO}origem sem nome ($ITEM); "; continue ;; esac
+  for i in "${!NOMES[@]}"; do
+    if [ "${NOMES[$i]}" = "$NOME" ]; then
+      COLISAO="${COLISAO}${ORIGENS[$i]} e $ORIGEM iriam para o mesmo lugar (atual/$NOME); "
+    fi
+  done
+  ORIGENS+=("$ORIGEM"); NOMES+=("$NOME")
+done
+if [ -n "$COLISAO" ]; then
+  registrar "FALHOU: origens em conflito, nada foi copiado — $COLISAO"
+  avisar "${TESTE}⚠️ Aviso do backup ($HOJE): não copiei NADA, porque ${COLISAO%; }. Dê um apelido a uma delas no BACKUP_ORIGENS do escudeiro.conf (caminho=apelido). Me chama que eu ajudo."
+  registrar "=== backup terminado ==="
+  exit 1
+fi
+
+# Canário: marca sem dado nenhum, lida DE VOLTA do destino pelo confere-backup.sh.
+# Grava sem seguir link: um link no lugar do canário (ou da pasta logs/) faria a
+# rotina sobrescrever outro arquivo da sua conta.
+if [ -z "$TESTE" ]; then
+  if [ -L "$PASTA/logs" ]; then
+    registrar "FALHOU: $PASTA/logs é um link; não gravei o canário"
+    FALHAS+=("canário")
+  else
+    mkdir -p "$PASTA/logs" && rm -f "$CANARIO" && (set -C; echo "$HOJE $(date +%H:%M:%S)" > "$CANARIO") \
+      || { registrar "FALHOU: não consegui gravar o canário"; FALHAS+=("canário"); }
+  fi
+fi
+
+for i in "${!ORIGENS[@]}"; do
+  ORIGEM="${ORIGENS[$i]}"; NOME="${NOMES[$i]}"
   [ -d "$ORIGEM" ] || { registrar "pulando $NOME (nao existe)"; continue; }
 
   SAIDA=$("$RCLONE" sync "$ORIGEM" "$BACKUP_DESTINO/atual/$NOME" \
-      --backup-dir "$BACKUP_DESTINO/versoes/$HOJE/$NOME" \
+      --backup-dir "$BACKUP_DESTINO/versoes/$EXECUCAO/$NOME" \
       "${EXCLUSOES[@]}" "${CACERT_ARGS[@]}" \
       --stats-one-line --stats 0 --log-level NOTICE 2>&1)
   CODIGO=$?

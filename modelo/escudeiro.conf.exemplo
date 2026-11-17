@@ -1,6 +1,10 @@
 # Configuração das ferramentas do agente (Escudeiro).
 # Copie para "escudeiro.conf" (sem o .exemplo), na raiz da pasta do agente.
 # Formato: CHAVE="valor", uma por linha. Linhas com # são ignoradas.
+# É lido como DADO, nunca executado: só $HOME (ou ~ no começo) é trocado pela sua
+# pasta; $(...), crase e outras variáveis ficam como texto. Sem aspas dentro do valor.
+# As rotinas do macOS usam uma CÓPIA deste arquivo, feita pelo instalador
+# (mac/launchd/instalar-launchd.sh). Mudou algo aqui? Rode o instalador de novo.
 # O escudeiro.conf fica fora do git (está no .gitignore): tem nomes e o chat do dono.
 
 # Nomes (aparecem nas mensagens do bom-dia, dos avisos e do fio do Telegram).
@@ -22,6 +26,7 @@ TELEGRAM_ACESSO=""
 # Vazio = backup desligado (o script avisa e sai).
 BACKUP_DESTINO=""
 # Pastas a copiar, separadas por ":" (a pasta do agente entra sempre).
+# Duas pastas com o mesmo nome final? Dê um apelido: "$HOME/a/projeto=projeto-a:$HOME/b/projeto=projeto-b"
 BACKUP_ORIGENS=""
 # Onde está o rclone (vazio = procurar no PATH).
 RCLONE=""

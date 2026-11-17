@@ -47,6 +47,13 @@ A ideia da "memória sem perda" (`modelo/ferramentas/memoria-sem-perda/`):
 arquivar a conversa inteira com busca por palavra antes que o sistema apague os
 históricos. Só a ideia; o código é próprio.
 
+## A licença do Escudeiro
+
+O Escudeiro é distribuído sob a licença MIT (arquivo `LICENSE`, na raiz). As
+partes derivadas do DG Claw continuam levando também o aviso de copyright e a
+licença MIT originais dele, em `licencas-de-terceiros/DG-Claw-LICENSE-MIT.txt`:
+quem copiar ou redistribuir o Escudeiro deve manter os dois arquivos.
+
 ## E a quem usa
 
 Cada lição escrita nos comentários dos scripts ("ancorar na meia-noite",
